@@ -76,3 +76,30 @@
     (ok true)
   )
 )
+
+(define-public (join-channel (channel-id uint))
+  (let
+    ((caller tx-sender)
+     (channel (unwrap! (map-get? channels {channel-id: channel-id}) ERR_CHANNEL_NOT_OPEN)))
+    
+    ;; Verify caller is participant 2
+    (asserts! (is-eq caller (get participant-2 channel)) ERR_UNAUTHORIZED)
+    
+    ;; Verify channel is in expected state
+    (asserts! (is-eq (get state channel) "OPEN") ERR_INVALID_STATE)
+    
+    ;; Check if participant 2 has sufficient STX
+    (asserts! (>= (stx-get-balance caller) (get balance-2 channel)) ERR_INSUFFICIENT_BALANCE)
+    
+    ;; Transfer initial balance from participant 2
+    (try! (stx-transfer? (get balance-2 channel) caller (as-contract tx-sender)))
+    
+    ;; Update channel state
+    (map-set channels
+      {channel-id: channel-id}
+      (merge channel {state: "ACTIVE"})
+    )
+    
+    (ok true)
+  )
+)
