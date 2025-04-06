@@ -173,3 +173,26 @@
     (ok true)
   )
 )
+
+(define-public (close-channel (channel-id uint))
+  (let
+    ((channel (unwrap! (map-get? channels {channel-id: channel-id}) ERR_CHANNEL_NOT_OPEN))
+     (participant-1 (get participant-1 channel))
+     (participant-2 (get participant-2 channel))
+     (balance-1 (get balance-1 channel))
+     (balance-2 (get balance-2 channel))
+     (current-block-height block-height))
+    
+    ;; Verify challenge period has passed
+    (asserts! (and (is-eq (get state channel) "CLOSING") (>= current-block-height (get challenge-height channel))) ERR_CHALLENGE_PERIOD_ACTIVE)
+    
+    ;; Transfer balances back to participants
+    (try! (as-contract (stx-transfer? balance-1 tx-sender participant-1)))
+    (try! (as-contract (stx-transfer? balance-2 tx-sender participant-2)))
+    
+    ;; Delete channel
+    (map-delete channels {channel-id: channel-id})
+    
+    (ok true)
+  )
+)
