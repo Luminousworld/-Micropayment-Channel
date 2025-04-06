@@ -103,3 +103,46 @@
     (ok true)
   )
 )
+
+(define-public (update-channel-state
+                (channel-id uint)
+                (new-balance-1 uint)
+                (new-balance-2 uint)
+                (new-nonce uint)
+                (signature-1 (buff 65))
+                (signature-2 (buff 65)))
+  (let
+    ((channel (unwrap! (map-get? channels {channel-id: channel-id}) ERR_CHANNEL_NOT_OPEN))
+     (participant-1 (get participant-1 channel))
+     (participant-2 (get participant-2 channel))
+     (current-nonce (get nonce channel))
+     (message-hash (generate-message-hash channel-id new-balance-1 new-balance-2 new-nonce)))
+    
+    ;; Verify channel is active
+    (asserts! (is-eq (get state channel) "ACTIVE") ERR_INVALID_STATE)
+    
+    ;; Verify nonce is higher than current
+    (asserts! (> new-nonce current-nonce) ERR_INVALID_STATE)
+    
+    ;; Verify total balance hasn't changed
+    (asserts! (is-eq (+ new-balance-1 new-balance-2) (+ (get balance-1 channel) (get balance-2 channel))) ERR_INVALID_STATE)
+    
+    ;; Verify both signatures
+    (asserts! (verify-signature message-hash signature-1 participant-1) ERR_INVALID_SIGNATURE)
+    (asserts! (verify-signature message-hash signature-2 participant-2) ERR_INVALID_SIGNATURE)
+    
+    ;; Update channel state
+    (map-set channels
+      {channel-id: channel-id}
+      (merge channel 
+        {
+          balance-1: new-balance-1,
+          balance-2: new-balance-2,
+          nonce: new-nonce
+        }
+      )
+    )
+    
+    (ok true)
+  )
+)
