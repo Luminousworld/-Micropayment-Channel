@@ -196,3 +196,47 @@
     (ok true)
   )
 )
+
+;; Force close with latest signed state
+(define-public (force-close-with-state
+                (channel-id uint)
+                (submit-balance-1 uint)
+                (submit-balance-2 uint)
+                (submit-nonce uint)
+                (signature-1 (buff 65))
+                (signature-2 (buff 65)))
+  (let
+    ((channel (unwrap! (map-get? channels {channel-id: channel-id}) ERR_CHANNEL_NOT_OPEN))
+     (participant-1 (get participant-1 channel))
+     (participant-2 (get participant-2 channel))
+     (current-nonce (get nonce channel))
+     (message-hash (generate-message-hash channel-id submit-balance-1 submit-balance-2 submit-nonce)))
+    
+    ;; Verify channel is in closing state
+    (asserts! (is-eq (get state channel) "CLOSING") ERR_INVALID_STATE)
+    
+    ;; Verify nonce is higher than current
+    (asserts! (> submit-nonce current-nonce) ERR_INVALID_STATE)
+    
+    ;; Verify both signatures
+    (asserts! (verify-signature message-hash signature-1 participant-1) ERR_INVALID_SIGNATURE)
+    (asserts! (verify-signature message-hash signature-2 participant-2) ERR_INVALID_SIGNATURE)
+    
+    ;; Verify total balance matches
+    (asserts! (is-eq (+ submit-balance-1 submit-balance-2) (+ (get balance-1 channel) (get balance-2 channel))) ERR_INVALID_STATE)
+    
+    ;; Update channel state with latest verified state
+    (map-set channels
+      {channel-id: channel-id}
+      (merge channel 
+        {
+          balance-1: submit-balance-1,
+          balance-2: submit-balance-2,
+          nonce: submit-nonce
+        }
+      )
+    )
+    
+    (ok true)
+  )
+)
