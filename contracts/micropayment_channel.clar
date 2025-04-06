@@ -44,3 +44,35 @@
     )
   ))
 )
+
+;; Public functions
+(define-public (open-channel (channel-id uint) (participant-2 principal) (initial-balance-1 uint) (initial-balance-2 uint))
+  (let
+    ((caller tx-sender))
+    
+    ;; Check if channel already exists
+    (asserts! (is-none (map-get? channels {channel-id: channel-id})) ERR_CHANNEL_ALREADY_OPEN)
+    
+    ;; Check if caller has sufficient STX
+    (asserts! (>= (stx-get-balance caller) initial-balance-1) ERR_INSUFFICIENT_BALANCE)
+    
+    ;; Transfer initial balances to contract
+    (try! (stx-transfer? initial-balance-1 caller (as-contract tx-sender)))
+    
+    ;; Initialize channel
+    (map-set channels
+      {channel-id: channel-id}
+      {
+        participant-1: caller,
+        participant-2: participant-2,
+        balance-1: initial-balance-1,
+        balance-2: u0, ;; Participant 2 will need to deposit separately
+        nonce: u0,
+        state: "OPEN",
+        challenge-height: u0
+      }
+    )
+    
+    (ok true)
+  )
+)
