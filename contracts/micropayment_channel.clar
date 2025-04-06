@@ -146,3 +146,30 @@
     (ok true)
   )
 )
+
+(define-public (initiate-close (channel-id uint))
+  (let
+    ((caller tx-sender)
+     (channel (unwrap! (map-get? channels {channel-id: channel-id}) ERR_CHANNEL_NOT_OPEN))
+     (current-block-height block-height))
+    
+    ;; Verify caller is one of the participants
+    (asserts! (or (is-eq caller (get participant-1 channel)) (is-eq caller (get participant-2 channel))) ERR_UNAUTHORIZED)
+    
+    ;; Verify channel is active
+    (asserts! (is-eq (get state channel) "ACTIVE") ERR_INVALID_STATE)
+    
+    ;; Set challenge period
+    (map-set channels
+      {channel-id: channel-id}
+      (merge channel 
+        {
+          state: "CLOSING",
+          challenge-height: (+ current-block-height CHALLENGE_PERIOD_BLOCKS)
+        }
+      )
+    )
+    
+    (ok true)
+  )
+)
